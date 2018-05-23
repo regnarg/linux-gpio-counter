@@ -75,9 +75,14 @@ static struct class ctr_class = {
 	.owner = THIS_MODULE,
 	.dev_groups = ctr_groups,
 };
+
+static DEFINE_SPINLOCK(ctr_irq_lock);
  
  
 static irqreturn_t irq_handler(int irq, void *dev_id, struct pt_regs *regs) {
+    unsigned long flags;
+    spin_lock_irqsave(&ctr_irq_lock, flags);
+
     u64 now = get_jiffies_64();
     if (now - last_pulse > debounce_jiffies && last_value == 1) { // debounced falling edge
         atomic64_add(1, &counter);
@@ -86,6 +91,7 @@ static irqreturn_t irq_handler(int irq, void *dev_id, struct pt_regs *regs) {
     last_pulse = now;
     last_value = gpio_get_value(gpio_num);
   
+    spin_unlock_irqrestore(&ctr_irq_lock, flags);
     return IRQ_HANDLED;
 }
  
